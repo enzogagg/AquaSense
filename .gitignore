@@ -3,3 +3,17 @@
 .pioenvs/
 .piolibdeps/
 .platformio/
+
+# Fichiers temporaires et logs
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+*.DS_Store
+
+# Fichiers de configuration utilisateur
+.vscode/
+
+# Fichiers de sauvegarde
+*~
