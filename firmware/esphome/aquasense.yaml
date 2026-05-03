@@ -1,0 +1,108 @@
+esphome:
+  name: aquasense
+  friendly_name: AquaSense
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Aquasense Fallback Hotspot"
+    password: !secret fallback_ap_password
+
+captive_portal:
+
+# --- Bus OneWire pour DS18B20 ---
+one_wire:
+  - platform: gpio
+    pin: GPIO19
+
+# --- Capteurs ---
+sensor:
+  # DS18B20
+  - platform: dallas_temp
+    name: "Température Aquarium"
+    id: temp_aquarium
+    update_interval: 5s
+
+  # TDS
+  - platform: adc
+    pin: GPIO35
+    name: "TDS Brut"
+    id: tds_raw
+    update_interval: 5s
+    attenuation: 12db
+
+  - platform: template
+    name: "TDS ppm"
+    update_interval: 5s
+    lambda: |-
+      float voltage = id(tds_raw).state * 3.3 / 4095.0; // ADC 12 bits
+      float tds = (133.42 * voltage * voltage * voltage
+                   - 255.86 * voltage * voltage
+                   + 857.39 * voltage) * 125;
+      return tds;
+    unit_of_measurement: "ppm"
+
+  # Turbidité
+  - platform: adc
+    pin: GPIO34
+    name: "Turbidité Brut"
+    id: turbidity_raw
+    update_interval: 5s
+    attenuation: 12db
+
+  - platform: template
+    name: "Turbidité NTU"
+    update_interval: 5s
+    lambda: |-
+      float voltage = id(turbidity_raw).state * 3.3 / 4095.0;
+      return voltage * 300.0;  // ajuster selon calibration
+    unit_of_measurement: "NTU"
+
+# --- Capteur de niveau d'eau ---
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO18
+      mode: INPUT
+      inverted: false
+    name: "Niveau d'eau"
+    device_class: moisture
+    filters:
+      - delayed_on: 1000ms
+      - delayed_off: 1000ms
+
+
+# --- Switch pompe appoint d'eau
+switch:
+  - platform: gpio
+    pin: 
+      number: GPIO33
+      inverted: false  
+    id: pompe_appoint
+    name: "Pompe Appoint Aquarium"
+    icon: "mdi:water-pump"
+    on_turn_on:
+      # --- SÉCURITÉ MATÉRIELLE ---
+      # La pompe s'arrête automatiquement après 10 secondes pour éviter les inondations
+      - delay: 10s
+      - switch.turn_off: pompe_appoint
