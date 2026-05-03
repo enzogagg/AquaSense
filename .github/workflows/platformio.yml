@@ -33,4 +33,4 @@ jobs:
           python -m pip install --upgrade pip
           pip install --upgrade platformio
       - name: Run PlatformIO Build
-        run: pio run -d Sensor_test
+        run: pio run -d firmware/cpp
